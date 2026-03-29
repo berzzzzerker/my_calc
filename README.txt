@@ -12,3 +12,8 @@
 - templates/index.html  -> HTML/CSS/JS интерфейс
 - profiles.json         -> профили
 - weight_history.csv    -> история расчётов
+
+
+Деплой на Render:
+- Рекомендуемый Start Command: gunicorn wsgi:app
+- Если деплой падал с ImportError про circular import, проверь что файл calculator.py содержит расчётную логику, а не импорт самого себя.
