@@ -461,44 +461,51 @@
           </div>
         </section>
 
-        <section class="card">
-          <h2>Цель</h2>
-          <div class="form-grid">
-            <div class="row">
-              <label>Способ задания цели</label>
-              <div class="segmented" role="radiogroup" aria-label="Способ задания цели">
-                <div>
-                  <input id="goalWeight" name="goalType" type="radio" value="weight" checked />
-                  <label for="goalWeight">вес</label>
-                </div>
-                <div>
-                  <input id="goalFat" name="goalType" type="radio" value="fat" />
-                  <label for="goalFat">жир</label>
-                </div>
-              </div>
-            </div>
+       <section class="card">
+  <h2>Цель</h2>
+  <div class="form-grid">
+    <div class="row">
+      <label>Способ задания цели</label>
+      <div class="segmented" role="radiogroup" aria-label="Способ задания цели">
+        <div>
+          <input id="goalWeight" name="goalType" type="radio" value="weight" checked />
+          <label for="goalWeight">вес</label>
+        </div>
+        <div>
+          <input id="goalFat" name="goalType" type="radio" value="fat" />
+          <label for="goalFat">жир</label>
+        </div>
+      </div>
+    </div>
 
-            <div class="row" id="goalWeightRow">
-              <label for="targetWeight">Целевой вес (кг)</label>
-              <input id="targetWeight" data-int="true" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
-            </div>
+    <div class="row" id="weightRow">
+      <label for="targetWeight">Целевой вес (кг)</label>
+      <input id="targetWeight" data-int="true" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+    </div>
 
-            <div class="row" id="goalFatRow" hidden>
-              <label for="targetFat">Целевой процент жира</label>
-              <input id="targetFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
-            </div>
+    <div id="fatBlock" hidden>
+      <div class="row">
+        <label for="currentFat">Текущий % жира</label>
+        <input id="currentFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
+      </div>
 
-            <label class="checkbox">
-              <input id="autoSaveCsv" type="checkbox" checked />
-              <span>Автосохранять расчёт в CSV</span>
-            </label>
+      <div class="row">
+        <label for="targetFat">Целевой % жира</label>
+        <input id="targetFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
+      </div>
+    </div>
 
-            <div class="stack-buttons">
-              <button id="calculateBtn" class="btn btn-primary" type="button">Рассчитать</button>
-              <button id="clearBtn" class="btn btn-secondary" type="button">Очистить результат</button>
-            </div>
-          </div>
-        </section>
+    <label class="checkbox">
+      <input id="autoSaveCsv" type="checkbox" checked />
+      <span>Автосохранять расчёт в CSV</span>
+    </label>
+
+    <div class="stack-buttons">
+      <button id="calculateBtn" class="btn btn-primary" type="button">Рассчитать</button>
+      <button id="clearBtn" class="btn btn-secondary" type="button">Очистить результат</button>
+    </div>
+  </div>
+</section>
       </div>
 
       <section class="card">
