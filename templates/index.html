@@ -12,12 +12,9 @@
       --text: #1d2a3b;
       --muted: #637187;
       --blue: #2f66ea;
-      --blue-2: #eaf1ff;
       --red: #d14b4b;
       --red-2: #fff2f2;
-      --green: #2f9d57;
       --green-2: #effaf3;
-      --yellow: #d3a31b;
       --yellow-2: #fff8e3;
       --shadow: 0 14px 40px rgba(24, 45, 88, 0.08);
       --radius: 24px;
@@ -96,10 +93,6 @@
       gap: 14px;
       align-items: center;
       min-width: 0;
-    }
-
-    .row.row-full {
-      grid-template-columns: 1fr;
     }
 
     label {
@@ -204,7 +197,6 @@
       transform: translateY(-1px);
     }
 
-    .btn-row,
     .stack-buttons {
       display: grid;
       gap: 12px;
@@ -368,10 +360,6 @@
       font-weight: 800;
     }
 
-    .muted {
-      color: var(--muted);
-    }
-
     .hint {
       font-size: 13px;
       line-height: 1.35;
@@ -461,51 +449,51 @@
           </div>
         </section>
 
-       <section class="card">
-  <h2>Цель</h2>
-  <div class="form-grid">
-    <div class="row">
-      <label>Способ задания цели</label>
-      <div class="segmented" role="radiogroup" aria-label="Способ задания цели">
-        <div>
-          <input id="goalWeight" name="goalType" type="radio" value="weight" checked />
-          <label for="goalWeight">вес</label>
-        </div>
-        <div>
-          <input id="goalFat" name="goalType" type="radio" value="fat" />
-          <label for="goalFat">жир</label>
-        </div>
-      </div>
-    </div>
+        <section class="card">
+          <h2>Цель</h2>
+          <div class="form-grid">
+            <div class="row">
+              <label>Способ задания цели</label>
+              <div class="segmented" role="radiogroup" aria-label="Способ задания цели">
+                <div>
+                  <input id="goalWeight" name="goalType" type="radio" value="weight" checked />
+                  <label for="goalWeight">вес</label>
+                </div>
+                <div>
+                  <input id="goalFat" name="goalType" type="radio" value="fat" />
+                  <label for="goalFat">жир</label>
+                </div>
+              </div>
+            </div>
 
-    <div class="row" id="weightRow">
-      <label for="targetWeight">Целевой вес (кг)</label>
-      <input id="targetWeight" data-int="true" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
-    </div>
+            <div class="row" id="weightRow">
+              <label for="targetWeight">Целевой вес (кг)</label>
+              <input id="targetWeight" data-int="true" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+            </div>
 
-    <div id="fatBlock" hidden>
-      <div class="row">
-        <label for="currentFat">Текущий % жира</label>
-        <input id="currentFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
-      </div>
+            <div id="fatBlock" hidden>
+              <div class="row">
+                <label for="currentFat">Текущий % жира</label>
+                <input id="currentFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
+              </div>
 
-      <div class="row">
-        <label for="targetFat">Целевой % жира</label>
-        <input id="targetFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
-      </div>
-    </div>
+              <div class="row">
+                <label for="targetFat">Целевой % жира</label>
+                <input id="targetFat" data-int="true" type="number" min="0" max="100" step="1" inputmode="numeric" placeholder="0" />
+              </div>
+            </div>
 
-    <label class="checkbox">
-      <input id="autoSaveCsv" type="checkbox" checked />
-      <span>Автосохранять расчёт в CSV</span>
-    </label>
+            <label class="checkbox">
+              <input id="autoSaveCsv" type="checkbox" checked />
+              <span>Автосохранять расчёт в CSV</span>
+            </label>
 
-    <div class="stack-buttons">
-      <button id="calculateBtn" class="btn btn-primary" type="button">Рассчитать</button>
-      <button id="clearBtn" class="btn btn-secondary" type="button">Очистить результат</button>
-    </div>
-  </div>
-</section>
+            <div class="stack-buttons">
+              <button id="calculateBtn" class="btn btn-primary" type="button">Рассчитать</button>
+              <button id="clearBtn" class="btn btn-secondary" type="button">Очистить результат</button>
+            </div>
+          </div>
+        </section>
       </div>
 
       <section class="card">
@@ -566,7 +554,7 @@
             <input id="caloriesDay" data-int="true" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
           </div>
 
-          <div class="hint">Все числовые поля целочисленные, отрицательные значения автоматически обнуляются. Человечество умудрилось сломать даже обычные инпуты, так что пришлось за ними присматривать.</div>
+          <div class="hint">Все числовые поля целочисленные, отрицательные значения автоматически обнуляются.</div>
         </div>
       </section>
     </div>
@@ -605,368 +593,6 @@
     </section>
   </div>
 
-  <script>
-    const $ = (id) => document.getElementById(id);
-
-    const els = {
-      profileSelect: $('profileSelect'),
-      saveProfileBtn: $('saveProfileBtn'),
-      deleteProfileBtn: $('deleteProfileBtn'),
-      firstName: $('firstName'),
-      lastName: $('lastName'),
-      sexMale: $('sexMale'),
-      sexFemale: $('sexFemale'),
-      goalWeight: $('goalWeight'),
-      goalFat: $('goalFat'),
-      goalWeightRow: $('goalWeightRow'),
-      goalFatRow: $('goalFatRow'),
-      targetWeight: $('targetWeight'),
-      targetFat: $('targetFat'),
-      autoSaveCsv: $('autoSaveCsv'),
-      calculateBtn: $('calculateBtn'),
-      clearBtn: $('clearBtn'),
-      weight: $('weight'),
-      height: $('height'),
-      age: $('age'),
-      steps: $('steps'),
-      workouts: $('workouts'),
-      minutesPerWorkout: $('minutesPerWorkout'),
-      proteinWeek: $('proteinWeek'),
-      fatWeek: $('fatWeek'),
-      carbsWeek: $('carbsWeek'),
-      caloriesDay: $('caloriesDay'),
-      result: $('result'),
-      resultGoal: $('resultGoal'),
-      resultBmr: $('resultBmr'),
-      resultTdee: $('resultTdee'),
-      statusCard: $('statusCard'),
-      statusEmoji: $('statusEmoji'),
-      statusTitle: $('statusTitle'),
-      statusText: $('statusText'),
-      foodText: $('foodText'),
-      timeText: $('timeText')
-    };
-
-    const INT_INPUTS = [...document.querySelectorAll('input[data-int="true"]')];
-    const PROFILE_KEY = 'deficitCalculatorProfiles_v2';
-    const CSV_KEY = 'deficitCalculatorCsv_v2';
-
-    function cleanIntValue(value, { allowEmpty = true } = {}) {
-      if (value === '' || value === null || value === undefined) return allowEmpty ? '' : 0;
-      const digits = String(value).replace(/[^\d]/g, '');
-      if (!digits) return allowEmpty ? '' : 0;
-      const parsed = Number.parseInt(digits, 10);
-      if (!Number.isFinite(parsed) || parsed < 0) return 0;
-      return parsed;
-    }
-
-    function enforceIntegerInput(input) {
-      const raw = input.value;
-      const cleaned = cleanIntValue(raw);
-      input.value = cleaned === '' ? '' : String(cleaned);
-    }
-
-    function numberValue(input) {
-      const cleaned = cleanIntValue(input.value, { allowEmpty: false });
-      input.value = String(cleaned);
-      return cleaned;
-    }
-
-    function currentSex() {
-      return els.sexFemale.checked ? 'female' : 'male';
-    }
-
-    function currentGoalType() {
-      return els.goalFat.checked ? 'fat' : 'weight';
-    }
-
-    function toggleGoalRows() {
-      const byFat = currentGoalType() === 'fat';
-      els.goalWeightRow.hidden = byFat;
-      els.goalFatRow.hidden = !byFat;
-    }
-
-    function getFormData() {
-      return {
-        firstName: els.firstName.value.trim(),
-        lastName: els.lastName.value.trim(),
-        sex: currentSex(),
-        goalType: currentGoalType(),
-        targetWeight: numberValue(els.targetWeight),
-        targetFat: Math.min(100, numberValue(els.targetFat)),
-        autoSaveCsv: els.autoSaveCsv.checked,
-        weight: numberValue(els.weight),
-        height: numberValue(els.height),
-        age: numberValue(els.age),
-        steps: numberValue(els.steps),
-        workouts: numberValue(els.workouts),
-        minutesPerWorkout: numberValue(els.minutesPerWorkout),
-        proteinWeek: numberValue(els.proteinWeek),
-        fatWeek: numberValue(els.fatWeek),
-        carbsWeek: numberValue(els.carbsWeek),
-        caloriesDay: numberValue(els.caloriesDay)
-      };
-    }
-
-    function setFormData(data = {}) {
-      els.firstName.value = data.firstName || '';
-      els.lastName.value = data.lastName || '';
-      if ((data.sex || 'male') === 'female') {
-        els.sexFemale.checked = true;
-      } else {
-        els.sexMale.checked = true;
-      }
-
-      if ((data.goalType || 'weight') === 'fat') {
-        els.goalFat.checked = true;
-      } else {
-        els.goalWeight.checked = true;
-      }
-      toggleGoalRows();
-
-      els.targetWeight.value = data.targetWeight || data.targetWeight === 0 ? String(cleanIntValue(data.targetWeight, { allowEmpty: false })) : '';
-      els.targetFat.value = data.targetFat || data.targetFat === 0 ? String(cleanIntValue(data.targetFat, { allowEmpty: false })) : '';
-      els.autoSaveCsv.checked = Boolean(data.autoSaveCsv ?? true);
-
-      ['weight','height','age','steps','workouts','minutesPerWorkout','proteinWeek','fatWeek','carbsWeek','caloriesDay'].forEach((key) => {
-        const value = data[key];
-        els[key].value = value || value === 0 ? String(cleanIntValue(value, { allowEmpty: false })) : '';
-      });
-    }
-
-    function getProfiles() {
-      try {
-        const raw = localStorage.getItem(PROFILE_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-
-    function saveProfiles(profiles) {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(profiles));
-    }
-
-    function profileDisplayName(profile) {
-      const name = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
-      if (name) return name;
-      return 'Без имени';
-    }
-
-    function refreshProfileSelect(selectedId = '') {
-      const profiles = getProfiles();
-      els.profileSelect.innerHTML = '<option value="">Новый профиль</option>';
-      profiles.forEach((profile) => {
-        const option = document.createElement('option');
-        option.value = profile.id;
-        option.textContent = profileDisplayName(profile);
-        option.title = profileDisplayName(profile);
-        els.profileSelect.appendChild(option);
-      });
-      els.profileSelect.value = selectedId || '';
-      els.profileSelect.title = els.profileSelect.selectedOptions[0]?.textContent || 'Выбор профиля';
-    }
-
-    function saveCurrentProfile() {
-      const data = getFormData();
-      const fullName = [data.firstName, data.lastName].filter(Boolean).join(' ').trim();
-      if (!fullName) {
-        alert('Сначала заполни имя или фамилию, а то профиль без названия выглядит как очередное решение, принятое в пятницу вечером.');
-        return;
-      }
-      const profiles = getProfiles();
-      const selectedId = els.profileSelect.value;
-      const profile = {
-        id: selectedId || crypto.randomUUID(),
-        ...data
-      };
-      const index = profiles.findIndex((p) => p.id === profile.id);
-      if (index >= 0) profiles[index] = profile;
-      else profiles.push(profile);
-      saveProfiles(profiles);
-      refreshProfileSelect(profile.id);
-    }
-
-    function loadSelectedProfile() {
-      const id = els.profileSelect.value;
-      if (!id) return;
-      const profile = getProfiles().find((p) => p.id === id);
-      if (!profile) return;
-      setFormData(profile);
-      els.profileSelect.title = profileDisplayName(profile);
-    }
-
-    function deleteSelectedProfile() {
-      const id = els.profileSelect.value;
-      if (!id) {
-        alert('Сейчас удалять нечего. Не все в жизни можно драматично стереть одной кнопкой.');
-        return;
-      }
-      const profiles = getProfiles().filter((p) => p.id !== id);
-      saveProfiles(profiles);
-      refreshProfileSelect('');
-    }
-
-    function bmrMifflin({ sex, weight, height, age }) {
-      if (!weight || !height || !age) return 0;
-      const base = 10 * weight + 6.25 * height - 5 * age;
-      return Math.round(base + (sex === 'female' ? -161 : 5));
-    }
-
-    function calcTdee({ bmr, steps, workouts, minutesPerWorkout, weight }) {
-      if (!bmr) return 0;
-      const stepCalories = steps * Math.max(weight, 1) * 0.0005;
-      const workoutDaily = (workouts * minutesPerWorkout * 6) / 7;
-      const total = bmr + stepCalories + workoutDaily;
-      return Math.round(total);
-    }
-
-    function estimateTimeToGoal(data, targetCalories) {
-      if (!data.weight || !targetCalories) return 'Недостаточно данных';
-      const deficit = Math.max(0, calcTdee({
-        bmr: bmrMifflin(data),
-        steps: data.steps,
-        workouts: data.workouts,
-        minutesPerWorkout: data.minutesPerWorkout,
-        weight: data.weight
-      }) - data.caloriesDay);
-      if (deficit < 1) return 'Цель не посчитать без дефицита';
-
-      if (data.goalType === 'weight' && data.targetWeight > 0 && data.targetWeight < data.weight) {
-        const kgToLose = data.weight - data.targetWeight;
-        const days = Math.ceil((kgToLose * 7700) / deficit);
-        const weeks = Math.ceil(days / 7);
-        return `${days} дн. (~${weeks} нед.)`;
-      }
-
-      if (data.goalType === 'fat' && data.targetFat > 0) {
-        return 'По % жира даю ориентир, а не магию: нужен контроль замеров каждую неделю';
-      }
-
-      return 'Укажи реальную цель ниже текущего веса';
-    }
-
-    function deficitStatus(deficit) {
-      if (deficit >= 500) {
-        return {
-          cls: 'good',
-          emoji: '😄',
-          title: 'Дефицит отличный',
-          text: `Текущий дефицит ${deficit} ккал. Это рабочий диапазон для снижения веса.`
-        };
-      }
-      if (deficit >= 200) {
-        return {
-          cls: 'mid',
-          emoji: '😐',
-          title: 'Дефицит умеренный',
-          text: `Текущий дефицит ${deficit} ккал. Худеть можно, но темп будет спокойнее.`
-        };
-      }
-      return {
-        cls: 'bad',
-        emoji: '☹️',
-        title: 'Дефицит слабый',
-        text: `Текущий дефицит ${deficit} ккал. Это почти поддержание, а не сушка мечты.`
-      };
-    }
-
-    function renderResult() {
-      const data = getFormData();
-      const bmr = bmrMifflin(data);
-      const tdee = calcTdee({
-        bmr,
-        steps: data.steps,
-        workouts: data.workouts,
-        minutesPerWorkout: data.minutesPerWorkout,
-        weight: data.weight
-      });
-      const deficit = Math.max(0, tdee - data.caloriesDay);
-      const status = deficitStatus(deficit);
-
-      let goalText = 'не задана';
-      if (data.goalType === 'weight' && data.targetWeight > 0) goalText = `${data.targetWeight} кг`;
-      if (data.goalType === 'fat' && data.targetFat > 0) goalText = `${data.targetFat}% жира`;
-
-      els.resultGoal.textContent = goalText;
-      els.resultBmr.textContent = `${bmr || 0} ккал`;
-      els.resultTdee.textContent = `${tdee || 0} ккал`;
-      els.statusCard.className = `status-card ${status.cls}`;
-      els.statusEmoji.textContent = status.emoji;
-      els.statusTitle.textContent = status.title;
-      els.statusText.textContent = status.text;
-
-      const proteinDay = Math.round(data.proteinWeek / 7);
-      const fatDay = Math.round(data.fatWeek / 7);
-      const carbsDay = Math.round(data.carbsWeek / 7);
-      els.foodText.textContent = `В среднем в день: белки ${proteinDay} г, жиры ${fatDay} г, углеводы ${carbsDay} г, питание ${data.caloriesDay} ккал.`;
-      els.timeText.textContent = estimateTimeToGoal(data, data.caloriesDay);
-      els.result.classList.add('active');
-
-      if (data.autoSaveCsv) appendCsvRow(data, bmr, tdee, deficit);
-    }
-
-    function clearResult() {
-      els.result.classList.remove('active');
-    }
-
-    function appendCsvRow(data, bmr, tdee, deficit) {
-      const rows = getCsvRows();
-      rows.push({
-        date: new Date().toISOString(),
-        name: [data.firstName, data.lastName].filter(Boolean).join(' ').trim(),
-        sex: data.sex,
-        weight: data.weight,
-        height: data.height,
-        age: data.age,
-        steps: data.steps,
-        workouts: data.workouts,
-        minutesPerWorkout: data.minutesPerWorkout,
-        caloriesDay: data.caloriesDay,
-        bmr,
-        tdee,
-        deficit,
-        goalType: data.goalType,
-        targetWeight: data.targetWeight,
-        targetFat: data.targetFat
-      });
-      localStorage.setItem(CSV_KEY, JSON.stringify(rows));
-    }
-
-    function getCsvRows() {
-      try {
-        const raw = localStorage.getItem(CSV_KEY);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-
-    INT_INPUTS.forEach((input) => {
-      input.addEventListener('input', () => enforceIntegerInput(input));
-      input.addEventListener('blur', () => {
-        const cleaned = cleanIntValue(input.value, { allowEmpty: false });
-        input.value = String(cleaned);
-      });
-      input.addEventListener('keydown', (e) => {
-        if (['e', 'E', '+', '-', '.', ','].includes(e.key)) {
-          e.preventDefault();
-        }
-      });
-    });
-
-    els.goalWeight.addEventListener('change', toggleGoalRows);
-    els.goalFat.addEventListener('change', toggleGoalRows);
-    els.profileSelect.addEventListener('change', loadSelectedProfile);
-    els.saveProfileBtn.addEventListener('click', saveCurrentProfile);
-    els.deleteProfileBtn.addEventListener('click', deleteSelectedProfile);
-    els.calculateBtn.addEventListener('click', renderResult);
-    els.clearBtn.addEventListener('click', clearResult);
-
-    refreshProfileSelect('');
-    toggleGoalRows();
-  </script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
