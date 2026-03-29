@@ -1,0 +1,21 @@
+{
+  "Никита Байков": {
+    "avg_kcal_per_day": 2200.0,
+    "current_age": 25,
+    "current_body_fat": null,
+    "current_height": 183,
+    "current_weight": 80.0,
+    "first_name": "Никита",
+    "goal_mode": "вес",
+    "goal_weight": 70.0,
+    "last_name": "Байков",
+    "sex": "мужчина",
+    "steps_per_day": 1000,
+    "target_body_fat": null,
+    "training_minutes": 60,
+    "trainings_per_week": 3,
+    "weekly_carbs": 15000.0,
+    "weekly_fat": 210.0,
+    "weekly_protein": 2100.0
+  }
+}
