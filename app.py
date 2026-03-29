@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import csv
-import io
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
 
-
-# =====================================================
-# Конфиг
-# =====================================================
 @dataclass(frozen=True)
 class CalculatorConfig:
     energy_one_kg_fat: int = 7700
@@ -27,9 +21,6 @@ class CalculatorConfig:
     profiles_file: str = "profiles.json"
 
 
-# =====================================================
-# Модели данных
-# =====================================================
 @dataclass
 class UserInput:
     first_name: str = ""
@@ -75,6 +66,7 @@ class TDEEEstimate:
 class GoalResult:
     goal_weight: float
     description: str
+    goal_label: str
 
 
 @dataclass
@@ -86,16 +78,10 @@ class ForecastResult:
     final_deficit: float
 
 
-# =====================================================
-# Ошибки
-# =====================================================
 class AppError(Exception):
     pass
 
 
-# =====================================================
-# Вспомогательные штуки
-# =====================================================
 class FileStorageHelper:
     @staticmethod
     def app_directory() -> Path:
@@ -108,9 +94,6 @@ class DateFormatterHelper:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-# =====================================================
-# Логика калькулятора
-# =====================================================
 class WeightLossCalculator:
     def __init__(self, config: CalculatorConfig):
         self.config = config
@@ -131,16 +114,20 @@ class WeightLossCalculator:
             avg_kcal_per_day=data.avg_kcal_per_day,
         )
 
-        current_deficit = tdee_estimate.fact_tdee - data.avg_kcal_per_day
-        maintenance = tdee_estimate.fact_tdee
+        current_deficit = round(tdee_estimate.fact_tdee - data.avg_kcal_per_day)
+        maintenance = round(tdee_estimate.fact_tdee)
         status = self.get_deficit_status(current_deficit)
+
+        protein_per_day = round(macros.protein_per_day, 1)
+        fat_per_day = round(macros.fat_per_day, 1)
+        carbs_per_day = round(macros.carbs_per_day, 1)
 
         lines = [
             "=== ОСНОВНОЙ РЕЗУЛЬТАТ ===",
             f"Профиль: {self.format_profile_name(data)}",
-            f"Текущий дефицит: {round(current_deficit):.0f} ккал/день",
-            f"Текущая норма ккал: {round(maintenance):.0f} ккал/день",
-            f"Время для похудения, через сколько будет достигнут результат: {self.format_goal_timeline(forecast)}",
+            f"Текущий дефицит: {current_deficit:.0f} ккал/день",
+            f"Текущая норма ккал: {maintenance:.0f} ккал/день",
+            f"Время для похудения: {self.format_goal_timeline(forecast)}",
             "",
             "=== ДОПОЛНИТЕЛЬНО ===",
             goal.description,
@@ -149,39 +136,30 @@ class WeightLossCalculator:
             f"Источник расчёта: {tdee_estimate.source_name}",
             "",
             "=== ПИТАНИЕ ===",
-            (
-                "Средние Б/Ж/У в день: "
-                f"{macros.protein_per_day:.1f} / {macros.fat_per_day:.1f} / {macros.carbs_per_day:.1f} г"
-            ),
+            f"Средние Б/Ж/У в день: {protein_per_day} / {fat_per_day} / {carbs_per_day} г",
             f"TEF: {round(macros.tef):.0f} ккал",
             f"Средний рацион: {round(data.avg_kcal_per_day):.0f} ккал/день",
             "",
             "=== ОЦЕНКА TDEE ===",
             tdee_estimate.explanation,
             f"Фактический TDEE для расчёта: {round(tdee_estimate.fact_tdee):.0f} ккал",
-            "",
-            "=== ПРИМЕЧАНИЯ ===",
-            "- История веса полностью убрана из логики.",
-            "- TDEE считается только по формуле на основе текущих данных.",
-            "- Метаболическая адаптация в прогнозе не учитывается.",
-            "- Если дефицит меньше или равен нулю, цель на текущем рационе не будет достигаться.",
-            "- Расчёт по % жира зависит от точности оценки % жира.",
         ]
 
         return {
             "profile_name": self.format_profile_name(data),
-            "deficit": round(current_deficit),
-            "maintenance": round(maintenance),
-            "goal_text": goal.description,
+            "deficit": current_deficit,
+            "maintenance": maintenance,
+            "goal_text": goal.goal_label,
+            "goal_description": goal.description,
             "bmr": round(bmr),
             "tdee": round(formula_tdee),
             "timeline": self.format_goal_timeline(forecast),
             "status": status,
             "output_text": "\n".join(lines),
             "meta": {
-                "protein_per_day": round(macros.protein_per_day, 1),
-                "fat_per_day": round(macros.fat_per_day, 1),
-                "carbs_per_day": round(macros.carbs_per_day, 1),
+                "protein_per_day": protein_per_day,
+                "fat_per_day": fat_per_day,
+                "carbs_per_day": carbs_per_day,
                 "tef": round(macros.tef),
             },
         }
@@ -201,7 +179,6 @@ class WeightLossCalculator:
             ("Средние ккал", data.avg_kcal_per_day),
             ("Минут в тренировке", float(data.training_minutes)),
         ]
-
         for field_name, value in numeric_positive:
             if value <= 0:
                 raise AppError(f"{field_name} должно быть больше 0.")
@@ -213,7 +190,6 @@ class WeightLossCalculator:
             ("Жиры за неделю", data.weekly_fat),
             ("Углеводы за неделю", data.weekly_carbs),
         ]
-
         for field_name, value in numeric_non_negative:
             if value < 0:
                 raise AppError(f"{field_name} не может быть отрицательным.")
@@ -235,10 +211,8 @@ class WeightLossCalculator:
 
             current_body_fat = data.current_body_fat
             target_body_fat = data.target_body_fat
-
             if not (0 < current_body_fat < 100 and 0 < target_body_fat < 100):
                 raise AppError("% жира должен быть в диапазоне 0-100.")
-
             if target_body_fat >= current_body_fat:
                 raise AppError("Целевой % жира должен быть меньше текущего.")
 
@@ -280,7 +254,7 @@ class WeightLossCalculator:
         return TDEEEstimate(
             formula_tdee=formula_tdee,
             fact_tdee=formula_tdee,
-            explanation="История веса полностью отключена, поэтому расчёт идёт только по формуле.",
+            explanation="История веса отключена, поэтому расчёт идёт только по формуле.",
             source_name="формула",
         )
 
@@ -288,10 +262,10 @@ class WeightLossCalculator:
         if data.goal_mode == "вес":
             if data.goal_weight is None:
                 raise AppError("Укажи целевой вес.")
-
             return GoalResult(
                 goal_weight=data.goal_weight,
-                description=f"Цель: {data.goal_weight:.1f} кг",
+                description=f"Цель по весу: {data.current_weight:.1f} → {data.goal_weight:.1f} кг",
+                goal_label=f"{round(data.current_weight):.0f} → {round(data.goal_weight):.0f} кг",
             )
 
         if data.current_body_fat is None or data.target_body_fat is None:
@@ -299,16 +273,16 @@ class WeightLossCalculator:
 
         lean_mass = data.current_weight * (1 - data.current_body_fat / 100.0)
         goal_weight = lean_mass / (1 - data.target_body_fat / 100.0)
-
         if goal_weight >= data.current_weight:
             raise AppError("Расчётный целевой вес вышел не меньше текущего.")
 
         return GoalResult(
             goal_weight=goal_weight,
             description=(
-                f"Цель: {data.target_body_fat:.1f}% жира\n"
+                f"Цель по жиру: {data.current_body_fat:.1f}% → {data.target_body_fat:.1f}%\n"
                 f"Расчётный целевой вес: {goal_weight:.1f} кг"
             ),
+            goal_label=f"{round(data.current_body_fat):.0f}% → {round(data.target_body_fat):.0f}%",
         )
 
     def calculate_forecast(
@@ -319,12 +293,10 @@ class WeightLossCalculator:
         avg_kcal_per_day: float,
     ) -> ForecastResult:
         kg_remaining = current_weight - goal_weight
-
         if kg_remaining <= 0:
             raise AppError("До цели уже нечего снижать.")
 
         current_deficit = tdee - avg_kcal_per_day
-
         if current_deficit <= 0:
             return ForecastResult(
                 total_days=0.0,
@@ -355,34 +327,39 @@ class WeightLossCalculator:
         return f"{round(forecast.total_days):.0f} дн. / {weeks:.1f} нед. / {months:.1f} мес."
 
     def get_deficit_status(self, deficit: float) -> dict:
-        if deficit >= 500:
+        if deficit >= 600:
             return {
                 "key": "green",
                 "emoji": "😄",
-                "title": "Дефицит отличный",
-                "subtitle": "Темп нормальный, можно спокойно двигаться к цели.",
+                "title": "Дефицит высокий",
+                "subtitle": f"Текущий дефицит {deficit:.0f} ккал. Это высокий дефицит.",
                 "color": "#2e7d32",
+            }
+        if deficit >= 400:
+            return {
+                "key": "yellow",
+                "emoji": "🙂",
+                "title": "Дефицит средний",
+                "subtitle": f"Текущий дефицит {deficit:.0f} ккал. Это средний дефицит.",
+                "color": "#f9a825",
             }
         if deficit >= 200:
             return {
-                "key": "yellow",
+                "key": "orange",
                 "emoji": "😐",
-                "title": "Дефицит средний",
-                "subtitle": "Дефицит есть, но он умеренный.",
-                "color": "#f9a825",
+                "title": "Дефицит низкий",
+                "subtitle": f"Текущий дефицит {deficit:.0f} ккал. Это низкий дефицит.",
+                "color": "#ef6c00",
             }
         return {
             "key": "red",
             "emoji": "☹️",
-            "title": "Дефицит слабый",
-            "subtitle": "С таким дефицитом прогресс будет медленный или почти незаметный.",
+            "title": "Дефицит низкий",
+            "subtitle": f"Текущий дефицит {deficit:.0f} ккал. Это почти поддержание.",
             "color": "#c62828",
         }
 
 
-# =====================================================
-# Хранилища
-# =====================================================
 class HistoryStorage:
     def __init__(self, file_name: str):
         self.file_path = FileStorageHelper.app_directory() / file_name
@@ -390,14 +367,28 @@ class HistoryStorage:
     def append_record(self, data: UserInput) -> None:
         file_exists = self.file_path.exists()
 
-        with self.file_path.open("a", encoding="utf-8-sig", newline="") as f:
-            writer = csv.writer(f, delimiter=";")
+        with self.file_path.open("a", encoding="utf-8-sig", newline="") as file:
+            writer = csv.writer(file, delimiter=";")
             if not file_exists:
                 writer.writerow([
-                    "saved_at", "first_name", "last_name", "sex", "current_weight", "height", "age",
-                    "steps_per_day", "trainings_per_week", "training_minutes", "weekly_protein",
-                    "weekly_fat", "weekly_carbs", "avg_kcal_per_day", "goal_mode", "goal_weight",
-                    "current_body_fat", "target_body_fat",
+                    "saved_at",
+                    "first_name",
+                    "last_name",
+                    "sex",
+                    "current_weight",
+                    "height",
+                    "age",
+                    "steps_per_day",
+                    "trainings_per_week",
+                    "training_minutes",
+                    "weekly_protein",
+                    "weekly_fat",
+                    "weekly_carbs",
+                    "avg_kcal_per_day",
+                    "goal_mode",
+                    "goal_weight",
+                    "current_body_fat",
+                    "target_body_fat",
                 ])
             writer.writerow([
                 DateFormatterHelper.timestamp_string(datetime.now()),
@@ -433,7 +424,6 @@ class ProfileStorage:
     def read_all(self) -> dict[str, UserInput]:
         if not self.file_path.exists():
             return {}
-
         try:
             raw = json.loads(self.file_path.read_text(encoding="utf-8"))
             return {key: UserInput(**value) for key, value in raw.items()}
@@ -474,106 +464,3 @@ class ProfileStorage:
         del all_profiles[profile_name]
         self.write_all(all_profiles)
         return True
-
-
-# =====================================================
-# Flask
-# =====================================================
-app = Flask(__name__)
-config = CalculatorConfig()
-calculator = WeightLossCalculator(config)
-history_storage = HistoryStorage(config.history_file)
-profile_storage = ProfileStorage(config.profiles_file)
-
-
-def parse_user_input(payload: dict) -> UserInput:
-    return UserInput(
-        first_name=str(payload.get("first_name", "")).strip(),
-        last_name=str(payload.get("last_name", "")).strip(),
-        sex=str(payload.get("sex", "мужчина")).strip(),
-        current_weight=float(payload.get("current_weight", 0) or 0),
-        current_height=int(float(payload.get("current_height", 0) or 0)),
-        current_age=int(float(payload.get("current_age", 0) or 0)),
-        steps_per_day=int(float(payload.get("steps_per_day", 0) or 0)),
-        trainings_per_week=int(float(payload.get("trainings_per_week", 0) or 0)),
-        training_minutes=int(float(payload.get("training_minutes", 0) or 0)),
-        weekly_protein=float(payload.get("weekly_protein", 0) or 0),
-        weekly_fat=float(payload.get("weekly_fat", 0) or 0),
-        weekly_carbs=float(payload.get("weekly_carbs", 0) or 0),
-        avg_kcal_per_day=float(payload.get("avg_kcal_per_day", 0) or 0),
-        goal_mode=str(payload.get("goal_mode", "вес")).strip(),
-        goal_weight=(None if payload.get("goal_weight") in ("", None) else float(payload.get("goal_weight"))),
-        current_body_fat=(None if payload.get("current_body_fat") in ("", None) else float(payload.get("current_body_fat"))),
-        target_body_fat=(None if payload.get("target_body_fat") in ("", None) else float(payload.get("target_body_fat"))),
-    )
-
-
-@app.errorhandler(AppError)
-def handle_app_error(error):
-    return jsonify({"ok": False, "error": str(error)}), 400
-
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-
-@app.route("/api/calculate", methods=["POST"])
-def api_calculate():
-    payload = request.get_json(force=True, silent=False)
-    data = parse_user_input(payload)
-    result = calculator.calculate(data)
-
-    if payload.get("auto_save_profile") and data.first_name.strip() and data.last_name.strip():
-        saved_name = profile_storage.save_profile(data)
-        result["saved_profile"] = saved_name
-
-    if payload.get("auto_save_csv"):
-        history_storage.append_record(data)
-        result["history_saved"] = True
-
-    return jsonify({"ok": True, "result": result})
-
-
-@app.route("/api/profiles", methods=["GET"])
-def api_profiles():
-    return jsonify({"ok": True, "profiles": profile_storage.list_profiles()})
-
-
-@app.route("/api/profiles", methods=["POST"])
-def api_save_profile():
-    payload = request.get_json(force=True, silent=False)
-    data = parse_user_input(payload)
-    profile_name = profile_storage.save_profile(data)
-    return jsonify({"ok": True, "profile_name": profile_name})
-
-
-@app.route("/api/profiles/<path:profile_name>", methods=["GET"])
-def api_get_profile(profile_name: str):
-    profile = profile_storage.load_profile(profile_name)
-    if profile is None:
-        raise AppError("Профиль не найден.")
-    return jsonify({"ok": True, "profile": asdict(profile)})
-
-
-@app.route("/api/profiles/<path:profile_name>", methods=["DELETE"])
-def api_delete_profile(profile_name: str):
-    deleted = profile_storage.delete_profile(profile_name)
-    if not deleted:
-        raise AppError("Профиль не найден.")
-    return jsonify({"ok": True, "deleted": True})
-
-
-@app.route("/api/history.csv", methods=["GET"])
-def api_history_csv():
-    file_path = history_storage.download_file()
-    return send_file(
-        file_path,
-        as_attachment=True,
-        download_name="weight_history.csv",
-        mimetype="text/csv",
-    )
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
