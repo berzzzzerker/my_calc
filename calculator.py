@@ -1,142 +1,193 @@
 from __future__ import annotations
 
-from dataclasses import asdict
-
-from flask import Flask, jsonify, render_template, request, send_file
-
-from calculator import (
-    AppError,
-    CalculatorConfig,
-    HistoryStorage,
-    ProfileStorage,
-    UserInput,
-    WeightLossCalculator,
-)
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+import csv
+import json
 
 
-app = Flask(__name__)
-config = CalculatorConfig()
-calculator = WeightLossCalculator(config)
-history_storage = HistoryStorage(config.history_file)
-profile_storage = ProfileStorage(config.profiles_file)
+class AppError(Exception):
+    """Ошибки валидации и доменной логики приложения."""
 
 
-def normalize_sex(value: str) -> str:
-    value = str(value or "").strip().lower()
-    mapping = {
-        "male": "мужчина",
-        "female": "женщина",
-        "мужчина": "мужчина",
-        "женщина": "женщина",
-    }
-    return mapping.get(value, "мужчина")
+@dataclass
+class CalculatorConfig:
+    history_file: str = "weight_history.csv"
+    profiles_file: str = "profiles.json"
 
 
-def normalize_goal_mode(value: str) -> str:
-    value = str(value or "").strip().lower()
-    mapping = {
-        "weight": "вес",
-        "fat": "жир",
-        "вес": "вес",
-        "жир": "жир",
-    }
-    return mapping.get(value, "вес")
+@dataclass
+class UserInput:
+    first_name: str
+    last_name: str
+    sex: str
+    current_weight: float
+    current_height: int
+    current_age: int
+    steps_per_day: int
+    trainings_per_week: int
+    training_minutes: int
+    weekly_protein: float
+    weekly_fat: float
+    weekly_carbs: float
+    avg_kcal_per_day: float
+    goal_mode: str
+    goal_weight: float | None = None
+    current_body_fat: float | None = None
+    target_body_fat: float | None = None
 
 
-def parse_optional_float(value):
-    if value in ("", None):
-        return None
-    return float(value)
+class WeightLossCalculator:
+    def __init__(self, config: CalculatorConfig):
+        self.config = config
+
+    @staticmethod
+    def _bmr(data: UserInput) -> int:
+        if data.current_weight <= 0 or data.current_height <= 0 or data.current_age <= 0:
+            raise AppError("Для расчёта BMR укажи корректные вес, рост и возраст.")
+        base = 10 * data.current_weight + 6.25 * data.current_height - 5 * data.current_age
+        return round(base + (-161 if data.sex == "женщина" else 5))
+
+    @staticmethod
+    def _tdee(data: UserInput, bmr: int) -> int:
+        step_calories = data.steps_per_day * max(data.current_weight, 1) * 0.0005
+        workout_daily = (data.trainings_per_week * data.training_minutes * 6) / 7
+        return round(bmr + step_calories + workout_daily)
+
+    def calculate(self, data: UserInput) -> dict:
+        bmr = self._bmr(data)
+        tdee = self._tdee(data, bmr)
+        deficit = max(0, round(tdee - data.avg_kcal_per_day))
+
+        result = {
+            "bmr": bmr,
+            "tdee": tdee,
+            "deficit": deficit,
+            "status": "good" if deficit >= 500 else "mid" if deficit >= 200 else "bad",
+        }
+
+        if data.goal_mode == "вес" and data.goal_weight is not None and 0 < data.goal_weight < data.current_weight:
+            kg_to_lose = data.current_weight - data.goal_weight
+            if deficit <= 0:
+                result["time_to_goal"] = "Нужен дефицит калорий для расчёта срока"
+            else:
+                days = int((kg_to_lose * 7700 + deficit - 1) // deficit)
+                result["time_to_goal"] = {"days": days, "weeks": (days + 6) // 7}
+        elif data.goal_mode == "жир" and data.target_body_fat is not None:
+            result["time_to_goal"] = "Цель по % жира оценивай по динамике замеров каждую неделю"
+
+        return result
 
 
-def parse_user_input(payload: dict) -> UserInput:
-    return UserInput(
-        first_name=str(payload.get("first_name", payload.get("firstName", ""))).strip(),
-        last_name=str(payload.get("last_name", payload.get("lastName", ""))).strip(),
-        sex=normalize_sex(payload.get("sex", "мужчина")),
-        current_weight=float(payload.get("current_weight", payload.get("weight", 0)) or 0),
-        current_height=int(float(payload.get("current_height", payload.get("height", 0)) or 0)),
-        current_age=int(float(payload.get("current_age", payload.get("age", 0)) or 0)),
-        steps_per_day=int(float(payload.get("steps_per_day", payload.get("steps", 0)) or 0)),
-        trainings_per_week=int(float(payload.get("trainings_per_week", payload.get("workouts", 0)) or 0)),
-        training_minutes=int(float(payload.get("training_minutes", payload.get("minutesPerWorkout", 0)) or 0)),
-        weekly_protein=float(payload.get("weekly_protein", payload.get("proteinWeek", 0)) or 0),
-        weekly_fat=float(payload.get("weekly_fat", payload.get("fatWeek", 0)) or 0),
-        weekly_carbs=float(payload.get("weekly_carbs", payload.get("carbsWeek", 0)) or 0),
-        avg_kcal_per_day=float(payload.get("avg_kcal_per_day", payload.get("caloriesDay", 0)) or 0),
-        goal_mode=normalize_goal_mode(payload.get("goal_mode", payload.get("goalType", "вес"))),
-        goal_weight=parse_optional_float(payload.get("goal_weight", payload.get("targetWeight"))),
-        current_body_fat=parse_optional_float(payload.get("current_body_fat", payload.get("currentFat"))),
-        target_body_fat=parse_optional_float(payload.get("target_body_fat", payload.get("targetFat"))),
-    )
+class HistoryStorage:
+    _fields = [
+        "date",
+        "name",
+        "sex",
+        "weight",
+        "height",
+        "age",
+        "steps",
+        "workouts",
+        "minutes_per_workout",
+        "protein_week",
+        "fat_week",
+        "carbs_week",
+        "avg_kcal_per_day",
+        "goal_mode",
+        "goal_weight",
+        "current_body_fat",
+        "target_body_fat",
+    ]
+
+    def __init__(self, file_path: str):
+        self.file_path = Path(file_path)
+
+    def _ensure_file(self) -> None:
+        if self.file_path.exists():
+            return
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        with self.file_path.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.DictWriter(fh, fieldnames=self._fields)
+            writer.writeheader()
+
+    def append_record(self, data: UserInput) -> None:
+        self._ensure_file()
+        with self.file_path.open("a", newline="", encoding="utf-8") as fh:
+            writer = csv.DictWriter(fh, fieldnames=self._fields)
+            writer.writerow(
+                {
+                    "date": datetime.now(timezone.utc).isoformat(),
+                    "name": f"{data.first_name} {data.last_name}".strip(),
+                    "sex": data.sex,
+                    "weight": data.current_weight,
+                    "height": data.current_height,
+                    "age": data.current_age,
+                    "steps": data.steps_per_day,
+                    "workouts": data.trainings_per_week,
+                    "minutes_per_workout": data.training_minutes,
+                    "protein_week": data.weekly_protein,
+                    "fat_week": data.weekly_fat,
+                    "carbs_week": data.weekly_carbs,
+                    "avg_kcal_per_day": data.avg_kcal_per_day,
+                    "goal_mode": data.goal_mode,
+                    "goal_weight": data.goal_weight,
+                    "current_body_fat": data.current_body_fat,
+                    "target_body_fat": data.target_body_fat,
+                }
+            )
+
+    def download_file(self) -> str:
+        self._ensure_file()
+        return str(self.file_path)
 
 
-@app.errorhandler(AppError)
-def handle_app_error(error):
-    return jsonify({"ok": False, "error": str(error)}), 400
+class ProfileStorage:
+    def __init__(self, file_path: str):
+        self.file_path = Path(file_path)
 
+    def _read_all(self) -> dict[str, dict]:
+        if not self.file_path.exists():
+            return {}
+        try:
+            raw = json.loads(self.file_path.read_text(encoding="utf-8") or "{}")
+        except json.JSONDecodeError as exc:
+            raise AppError("profiles.json повреждён и не читается") from exc
+        return raw if isinstance(raw, dict) else {}
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+    def _write_all(self, payload: dict[str, dict]) -> None:
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
+        self.file_path.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
+    @staticmethod
+    def _profile_name(data: UserInput) -> str:
+        full_name = f"{data.first_name} {data.last_name}".strip()
+        return full_name or "Профиль без имени"
 
-@app.route("/api/calculate", methods=["POST"])
-def api_calculate():
-    payload = request.get_json(force=True, silent=False)
-    data = parse_user_input(payload)
-    result = calculator.calculate(data)
+    def save_profile(self, data: UserInput) -> str:
+        name = self._profile_name(data)
+        profiles = self._read_all()
+        profiles[name] = asdict(data)
+        self._write_all(profiles)
+        return name
 
-    if payload.get("auto_save_profile") and data.first_name.strip() and data.last_name.strip():
-        saved_name = profile_storage.save_profile(data)
-        result["saved_profile"] = saved_name
+    def list_profiles(self) -> list[str]:
+        return sorted(self._read_all().keys())
 
-    if payload.get("auto_save_csv") or payload.get("autoSaveCsv"):
-        history_storage.append_record(data)
-        result["history_saved"] = True
+    def load_profile(self, profile_name: str) -> UserInput | None:
+        profile = self._read_all().get(profile_name)
+        if profile is None:
+            return None
+        return UserInput(**profile)
 
-    return jsonify({"ok": True, "result": result})
-
-
-@app.route("/api/profiles", methods=["GET"])
-def api_profiles():
-    return jsonify({"ok": True, "profiles": profile_storage.list_profiles()})
-
-
-@app.route("/api/profiles", methods=["POST"])
-def api_save_profile():
-    payload = request.get_json(force=True, silent=False)
-    data = parse_user_input(payload)
-    profile_name = profile_storage.save_profile(data)
-    return jsonify({"ok": True, "profile_name": profile_name})
-
-
-@app.route("/api/profiles/<path:profile_name>", methods=["GET"])
-def api_get_profile(profile_name: str):
-    profile = profile_storage.load_profile(profile_name)
-    if profile is None:
-        raise AppError("Профиль не найден.")
-    return jsonify({"ok": True, "profile": asdict(profile)})
-
-
-@app.route("/api/profiles/<path:profile_name>", methods=["DELETE"])
-def api_delete_profile(profile_name: str):
-    deleted = profile_storage.delete_profile(profile_name)
-    if not deleted:
-        raise AppError("Профиль не найден.")
-    return jsonify({"ok": True, "deleted": True})
-
-
-@app.route("/api/history.csv", methods=["GET"])
-def api_history_csv():
-    file_path = history_storage.download_file()
-    return send_file(
-        file_path,
-        as_attachment=True,
-        download_name="weight_history.csv",
-        mimetype="text/csv",
-    )
-
-
-if __name__ == "__main__":
-    app.run(debug=True)
+    def delete_profile(self, profile_name: str) -> bool:
+        profiles = self._read_all()
+        existed = profile_name in profiles
+        if existed:
+            profiles.pop(profile_name, None)
+            self._write_all(profiles)
+        return existed
